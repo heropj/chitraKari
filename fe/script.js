@@ -14,6 +14,21 @@ let bgColor = "#f0f0f0";
 
 ctx.lineCap = "round";
 
+let lastX = 0;
+let lastY = 0;
+let isNewStroke = false;
+
+
+function drawFromSocket(data) {
+  ctx.strokeStyle = data.tool === "pen" ? data.color : bgColor;
+  ctx.lineWidth = data.tool === "pen" ? data.size : data.size * 2;
+
+  ctx.beginPath();
+  ctx.moveTo(data.fromX, data.fromY);
+  ctx.lineTo(data.toX, data.toY);
+  ctx.stroke();
+}
+
 
 document.getElementById("colorPicker").addEventListener("input", (e) => {
   brushColor = e.target.value;
@@ -41,15 +56,6 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 });
 
-// document.getElementById("downloadBtn").addEventListener("click", () => {
-//   const link = document.createElement("a");
-//   link.download = "chitrakari-drawing.png";
-//   link.href = canvas.toDataURL();
-//   link.click();
-// });
-
-
-
 document.getElementById("downloadBtn").addEventListener("click", () => {
     downloadCanvasAsImage();
 });
@@ -74,59 +80,125 @@ function downloadCanvasAsImage() {
 
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
+  isNewStroke = true;
+  lastX = e.offsetX;
+  lastY = e.offsetY;
   ctx.beginPath();
   ctx.moveTo(e.offsetX, e.offsetY);
 });
 
-// canvas.addEventListener("mousemove", (e) => {
-//   if (!isDrawing) return;
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: e.touches[0].clientX - rect.left,
+    y: e.touches[0].clientY - rect.top
+  };
+}
 
-//   ctx.strokeStyle = currentTool === "pen" ? brushColor : bgColor;
-//   ctx.lineWidth = brushSize;
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  const pos = getPos(e);
+  isDrawing = true;
+  isNewStroke = true;
+  lastX = pos.x;
+  lastY = pos.y;
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+});
 
-//   ctx.lineTo(e.offsetX, e.offsetY);
-//   ctx.stroke();
-// });
+function handleDrawing(x,y){
+    if (isDrawing) {
+    let strokeData = {
+      fromX: lastX,
+      fromY: lastY,
+      toX: x,
+      toY: y,
+      color: brushColor,
+      size: brushSize,
+      tool: currentTool,
+      roomId: roomId,
+      userId: socket.id,
+      isNewStroke
+    };
 
-// canvas.addEventListener("mousemove", (e) => {
-//   if (!isDrawing) return;
+    if (currentTool === "pen") {
+      ctx.strokeStyle = brushColor;
+      ctx.lineWidth = brushSize;
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else if (currentTool === "eraser") {
+      let size = brushSize * 3;
+      ctx.clearRect(x - size / 2, y - size / 2, size, size);
+    }
 
-//   if (currentTool === "pen") {
-//     ctx.strokeStyle = brushColor;
-//     ctx.lineWidth = brushSize;
-//     ctx.lineTo(e.offsetX, e.offsetY);
-//     ctx.stroke();
-//   } else if (currentTool === "eraser") {
-//     ctx.clearRect(e.offsetX - brushSize * 2 / 2, e.offsetY - brushSize * 2 / 2, brushSize * 2, brushSize * 2);
-//   }
-// });
+    socket.emit("draw", strokeData);
+
+    //emit on drwn only??
+    // socket.emit("ppcursor", {
+    //   x: e.offsetX,
+    //   y: e.offsetY,
+    //   tool: currentTool,
+    //   brushSize,
+    //   brushColor,
+    //   roomId: roomId,
+    //   userName: userName,
+    //   userId: socket.id //to identify users uniquely(ye spelling sahi hai??)
+    // });
+
+    lastX = x;
+    lastY = y;
+    isNewStroke = false;
+  }
+}
 
 canvas.addEventListener("mousemove", (e) => {
   
-    customCursor.style.left = `${e.pageX}px`;
-    customCursor.style.top = `${e.pageY}px`;
-    customCursor.style.display = "block";
+  customCursor.style.left = `${e.pageX}px`;
+  customCursor.style.top = `${e.pageY}px`;
+  customCursor.style.display = "block";
 
-    // if (!isDrawing) {
-    //     updateCustomCursorStyle();
-    //     customCursor.style.transform = "translate(-50%, -50%)";
-    // }
-    //why cmntd?: har mouse move pe cursor kyu update karna bro, update only when needed..
+  socket.emit("ppcursor", {
+    x: e.offsetX,
+    y: e.offsetY,
+    tool: currentTool,
+    brushSize,
+    brushColor,
+    roomId: roomId,
+    // userName: userName,
+    userId: socket.id //to identify users uniquely(ye spelling sahi hai??)
+  });
 
-  if (isDrawing && currentTool === "pen") {
-    ctx.strokeStyle = brushColor;
-    ctx.lineWidth = brushSize;
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-  } else if (isDrawing && currentTool === "eraser") {
-    let size = brushSize * 3;
-    ctx.clearRect(e.offsetX - size / 2, e.offsetY - size / 2, size, size);
-  }
+  handleDrawing(e.offsetX, e.offsetY);
 });
 
+canvas.addEventListener("touchmove", (e) => {
 
+  e.preventDefault();
+  const pos = getPos(e);
+
+  customCursor.style.left = `${pos.x}px`;
+  customCursor.style.top = `${pos.y}px`;
+  customCursor.style.display = "block";
+
+  socket.emit("ppcursor", {
+    x: pos.x,
+    y: pos.y,
+    tool: currentTool,
+    brushSize,
+    brushColor,
+    roomId: roomId,
+    // userName: userName,
+    userId: socket.id //to identify users uniquely(ye spelling sahi hai??)
+  });
+
+  handleDrawing(pos.x, pos.y);
+});
 
 canvas.addEventListener("mouseup", () => {
+  isDrawing = false;
+});
+
+canvas.addEventListener("touchend", () => {
   isDrawing = false;
 });
 
@@ -138,11 +210,11 @@ canvas.addEventListener("mouseleave", () => {
 
 //keyboard shortcuts
 document.addEventListener("keydown", (e) => {
-  if (e.key === "p" || e.key === "P") {
+  if ((e.key === "p" || e.key === "P") && e.altKey) {
       currentTool = "pen";
       updateCustomCursorStyle();
       updateToolBarIndicator();
-  } else if (e.key === "e" || e.key === "E") {
+  } else if ((e.key === "e" && e.altKey) || (e.key === "E" && e.altKey)) {
     currentTool = "eraser";
     updateCustomCursorStyle();
     updateToolBarIndicator();
@@ -154,12 +226,6 @@ document.addEventListener("keydown", (e) => {
 });
 
 //dekha react ka use bro..
-//keydown se tool switch hua, but cursor change nahi hua..
-//kyuki cursor change ka logic mousemove event me handle kara hai..
-//to ab yaha bhi handle karna padega (repetition karna padega bc), 
-//ya fir mousemove ko call kar de?
-
-//best is, make a fun to update cursor style and call it whenever needed
 function updateCustomCursorStyle() {
   if (currentTool === "pen") {
     customCursor.className = "pen";
@@ -187,10 +253,10 @@ function updateToolBarIndicator() {
   }
 }
 updateCustomCursorStyle();
-//why called updateCustomCursorStyle but not updateToolBarIndicator?
-//reply on comeback.
-//hint: canvas: cursor:none;
 
 
-//why separate functions bro??
-//kyuki jab jab cursor change karna hai tab tab indicator change karna hai aisa zaruri nahi
+//send name update to server yaha se..
+document.getElementById("userNameDisplay").addEventListener("input", (e) => {
+  userName = e.target.value;
+  socket.emit("nameChange", { userId: socket.id, newName: userName, roomId: roomId });
+});
