@@ -78,11 +78,14 @@ function downloadCanvasAsImage() {
   link.click();
 }
 
+let strokeBuffer = [];
+
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
   isNewStroke = true;
   lastX = e.offsetX;
   lastY = e.offsetY;
+  strokeBuffer = [{ x: lastX, y: lastY }];
   ctx.beginPath();
   ctx.moveTo(e.offsetX, e.offsetY);
 });
@@ -102,24 +105,14 @@ canvas.addEventListener("touchstart", (e) => {
   isNewStroke = true;
   lastX = pos.x;
   lastY = pos.y;
+  strokeBuffer = [{ x: lastX, y: lastY }];
   ctx.beginPath();
   ctx.moveTo(pos.x, pos.y);
 });
 
 function handleDrawing(x,y){
     if (isDrawing) {
-    let strokeData = {
-      fromX: lastX,
-      fromY: lastY,
-      toX: x,
-      toY: y,
-      color: brushColor,
-      size: brushSize,
-      tool: currentTool,
-      roomId: roomId,
-      userId: socket.id,
-      isNewStroke
-    };
+      strokeBuffer.push({ x, y });
 
     if (currentTool === "pen") {
       ctx.strokeStyle = brushColor;
@@ -130,20 +123,6 @@ function handleDrawing(x,y){
       let size = brushSize * 3;
       ctx.clearRect(x - size / 2, y - size / 2, size, size);
     }
-
-    socket.emit("draw", strokeData);
-
-    //emit on drwn only??
-    // socket.emit("ppcursor", {
-    //   x: e.offsetX,
-    //   y: e.offsetY,
-    //   tool: currentTool,
-    //   brushSize,
-    //   brushColor,
-    //   roomId: roomId,
-    //   userName: userName,
-    //   userId: socket.id //to identify users uniquely(ye spelling sahi hai??)
-    // });
 
     lastX = x;
     lastY = y;
@@ -196,10 +175,31 @@ canvas.addEventListener("touchmove", (e) => {
 
 canvas.addEventListener("mouseup", () => {
   isDrawing = false;
+  if (strokeBuffer.length > 1) {
+    socket.emit("draw", {
+      points: strokeBuffer,
+      color: brushColor,
+      size: brushSize,
+      tool: currentTool,
+      roomId,
+      userId: socket.id
+    });
+  }
+  strokeBuffer = [];
 });
 
 canvas.addEventListener("touchend", () => {
-  isDrawing = false;
+    if (strokeBuffer.length > 1) {
+    socket.emit("draw", {
+      points: strokeBuffer,
+      color: brushColor,
+      size: brushSize,
+      tool: currentTool,
+      roomId,
+      userId: socket.id
+    });
+  }
+  strokeBuffer = [];
 });
 
 canvas.addEventListener("mouseleave", () => {

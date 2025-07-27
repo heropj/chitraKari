@@ -19,28 +19,59 @@ socket.on("connect", () => {
 });
 
 // Drawing event from other users
+// socket.on("draw", (data) => {
+
+//   console.log("draw data: ", data);
+//   if (data.userId === socket.id) return;
+
+//   ctx.strokeStyle = data.tool === "pen" ? data.color : bgColor;
+//   ctx.lineWidth = data.tool === "pen" ? data.size : data.size * 3;
+
+//   if (data.tool === "pen") {
+//     ctx.beginPath();
+//     ctx.moveTo(data.fromX, data.fromY);
+//     ctx.lineTo(data.toX, data.toY);
+//     ctx.stroke();
+//   } else if (data.tool === "eraser") {
+//     ctx.clearRect(
+//       data.toX - (data.size * 3) / 2,
+//       data.toY - (data.size * 3) / 2,
+//       data.size * 3,
+//       data.size * 3
+//     );
+//   }
+// });
+
 socket.on("draw", (data) => {
+  if (data.userId === socket.id) return;
 
   console.log("draw data: ", data);
-  if (data.userId === socket.id) return;
+  console.log("points: ", data.points);
+  const points = data.points;
+  if (!points || points.length < 2) return;
 
   ctx.strokeStyle = data.tool === "pen" ? data.color : bgColor;
   ctx.lineWidth = data.tool === "pen" ? data.size : data.size * 3;
 
   if (data.tool === "pen") {
     ctx.beginPath();
-    ctx.moveTo(data.fromX, data.fromY);
-    ctx.lineTo(data.toX, data.toY);
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
     ctx.stroke();
   } else if (data.tool === "eraser") {
-    ctx.clearRect(
-      data.toX - (data.size * 3) / 2,
-      data.toY - (data.size * 3) / 2,
-      data.size * 3,
-      data.size * 3
-    );
+    for (let point of points) {
+      ctx.clearRect(
+        point.x - (data.size * 3) / 2,
+        point.y - (data.size * 3) / 2,
+        data.size * 3,
+        data.size * 3
+      );
+    }
   }
 });
+
 
 
 //cursor show cro
