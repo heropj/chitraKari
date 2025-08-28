@@ -3,8 +3,8 @@
 const socket = io("http://localhost:3000");
 // const socket = io("https://4m0cbtgg-3000.inc1.devtunnels.ms/");
 
-// const roomId = prompt("Enter Room ID to join:");
-const roomId=12345;
+const roomId = prompt("Enter Room ID to join:");
+// const roomId=12345;
 // const userName = prompt("Enter your name:");
 if(roomId){
   console.log("sckt", socket)
